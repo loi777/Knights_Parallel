@@ -205,7 +205,6 @@ void inicia_recursao_multithread(int tabuleiro[THREADMAX][N][M], int x, int y, i
 //------------------------------------------------------------------------------------------
 
 
-
 // versao recursiva do algoritmo
 void passeio_cavalo_main(int tabuleiro[THREADMAX][N][M], int too_deep, int x, int y, int jogada, int* threads, int* global_condicao_parada, clock_t* unparallel_time) {
     int x2, y2, thread_free;
@@ -223,62 +222,45 @@ void passeio_cavalo_main(int tabuleiro[THREADMAX][N][M], int too_deep, int x, in
     int mov_possiveis_qtd = 0;
     get_mov_possiveis(tabuleiro[0], x, y, mov_possiveis, &mov_possiveis_qtd);
 
-
-    if (mov_possiveis_qtd > 0) {
-
-        // testa cada movimento, [1, 8] possiveis
-        for (int i = 0; i < mov_possiveis_qtd-1; i++) {
-            // condicao de parada caso uma multi-thread chegou na resposta
-            if (*global_condicao_parada)
-                return;
+    if (mov_possiveis_qtd == 0) {
+        return;
+    }
 
 
-            x2 = proximo_movimento_x(x, mov_possiveis[i]);
-            y2 = proximo_movimento_y(y, mov_possiveis[i]);
+    // testa cada movimento, [1, 8] possiveis
+    for (int i = 0; i < mov_possiveis_qtd-1; i++) {
+        // condicao de parada caso uma multi-thread chegou na resposta
+        if (*global_condicao_parada)
+            return;
 
 
-            thread_free = 0;
-            // se a main foi prolongada // obtem uma thread livre
-            if (jogada < too_deep) {
-                thread_free = get_free_thread(threads);
-            }
+        x2 = proximo_movimento_x(x, mov_possiveis[i]);
+        y2 = proximo_movimento_y(y, mov_possiveis[i]);
 
 
-            // amenos que nao tenha
-            if (thread_free) {
-
-                copia_tabuleiro(tabuleiro, 0, thread_free);
-
-                // inicia multi-thread
-                #pragma omp task shared(tabuleiro, threads, global_condicao_parada) firstprivate(thread_free, x2, y2, jogada)
-                {
-                    inicia_recursao_multithread(tabuleiro, x2, y2, jogada, threads, thread_free, global_condicao_parada);
-
-                    // libera a thread usada
-                    threads[thread_free] = 0;
-                }
-
-                continue;
-            }
-
-            // caso nao estejamos profundos ainda
-            tabuleiro[0][x2][y2] = jogada+1;
-
-            // continua a recursao
-            passeio_cavalo_main(tabuleiro, too_deep, x2,y2, jogada+1, threads, global_condicao_parada, unparallel_time);
-
-            // verifica se a main terminou a recursao
-            if (*global_condicao_parada) {
-                return;
-            }
-
-            // backtrack da recursao
-            tabuleiro[0][x2][y2] = 0;
+        thread_free = 0;
+        // se a main foi prolongada // obtem uma thread livre
+        if (jogada < too_deep) {
+            thread_free = get_free_thread(threads);
         }
 
-    
-        x2 = proximo_movimento_x(x, mov_possiveis[mov_possiveis_qtd-1]);
-        y2 = proximo_movimento_y(y, mov_possiveis[mov_possiveis_qtd-1]);
+
+        // amenos que nao tenha
+        if (thread_free) {
+
+            copia_tabuleiro(tabuleiro, 0, thread_free);
+
+            // inicia multi-thread
+            #pragma omp task shared(tabuleiro, threads, global_condicao_parada) firstprivate(thread_free, x2, y2, jogada)
+            {
+                inicia_recursao_multithread(tabuleiro, x2, y2, jogada, threads, thread_free, global_condicao_parada);
+
+                // libera a thread usada
+                threads[thread_free] = 0;
+            }
+
+            continue;
+        }
 
         // caso nao estejamos profundos ainda
         tabuleiro[0][x2][y2] = jogada+1;
@@ -294,6 +276,24 @@ void passeio_cavalo_main(int tabuleiro[THREADMAX][N][M], int too_deep, int x, in
         // backtrack da recursao
         tabuleiro[0][x2][y2] = 0;
     }
+
+    
+    x2 = proximo_movimento_x(x, mov_possiveis[mov_possiveis_qtd-1]);
+    y2 = proximo_movimento_y(y, mov_possiveis[mov_possiveis_qtd-1]);
+
+    // caso nao estejamos profundos ainda
+    tabuleiro[0][x2][y2] = jogada+1;
+
+    // continua a recursao
+    passeio_cavalo_main(tabuleiro, too_deep, x2,y2, jogada+1, threads, global_condicao_parada, unparallel_time);
+
+    // verifica se a main terminou a recursao
+    if (*global_condicao_parada) {
+        return;
+    }
+
+    // backtrack da recursao
+    tabuleiro[0][x2][y2] = 0;
 
     return;
 }
