@@ -336,7 +336,7 @@ int main() {
 
     int global_condicao_parada = 0;
 
-    omp_set_num_threads(4);
+    omp_set_num_threads(THREADMAX);
     
     #pragma omp parallel shared(tabuleiro, threads, global_condicao_parada, unparallel_time)
     #pragma omp single
